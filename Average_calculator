@@ -1,0 +1,41 @@
+from flask import Flask,request,jsonify 
+import requests
+from collections import deque
+import time
+
+app=Flask(__name__)
+
+WINDOW_SIZE=10
+NUMBERS_WINDOW=deque(maxlen=WINDOW_SIZE)
+THIRD_PARTY_API_URL="https://third-party-server.com/numbers"
+TIMEOUT=0.5
+def fetch_number_by_id(number_id):
+    try:
+        response=requests.get(f"{THIRD_PARTY_API_URL}/{number_id}",timeout=TIMEOUT)
+        if response.status_code==200:
+            return response.json().get("number")
+        
+    except requests.RequestException:
+        return None
+    return None
+def is_valid_id(number_id):
+    return number_id in ['p','T','e','Y']
+@app.route('/')
+def calculate():
+    number_id=request.args.get('id')
+    if not is_valid_id(number_id):
+        return jsonify({"errr":"Invalid ID"}),400
+    prev_state=list(NUMBERS_WINDOW)
+    fetched_number=fetch_number_by_id(number_id)
+    if fetched_number is not None and fetched_number not in NUMBERS_WINDOW:
+        NUMBERS_WINDOW.append(fetched_number)
+        current_state=list(NUMBERS_WINDOW)
+        if len(NUMBERS_WINDOW)<WINDOW_SIZE:
+            average=sum(NUMBERS_WINDOW)/len(NUMBERS_WINDOW)
+        else:
+            average=sum(NUMBERS_WINDOW)/WINDOW_SIZE
+            response={"PrevState":prev_state,"CurrState":current_state,"FetchedNumnber":fetched_number,"Average":average}
+    return  jsonify(response)
+if __name__ == '__main__':
+    app.run(port=9876)
+    
